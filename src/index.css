@@ -1,0 +1,154 @@
+@import "tailwindcss";
+
+@theme {
+  /* Palette — dérivée du logo Sing Out (bleu -> sarcelle) et du vert
+     "message" utilisé pour le rendu des chants (clin d'œil au partage
+     WhatsApp/Telegram, cœur de fonctionnalité de l'app). */
+  --color-ink: #101B2D;
+  --color-ink-soft: #3A4759;
+  --color-muted: #6B7686;
+  --color-paper: #F3F6FB;
+  --color-surface: #FFFFFF;
+  --color-border: #E3E8F0;
+
+  --color-brand-blue: #1D63E8;
+  --color-brand-blue-light: #4C93FF;
+  --color-brand-teal: #12B3A0;
+  --color-brand-teal-light: #35D6BB;
+
+  --color-bubble: #E4F7DC;
+  --color-bubble-border: #CDEFC0;
+  --color-bubble-accent: #1E7A55;
+
+  --color-danger: #DC4C40;
+  --color-danger-soft: #FCE8E6;
+
+  --font-display: "Sora", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --shadow-card: 0 1px 2px rgba(16, 27, 45, 0.04), 0 8px 24px -12px rgba(16, 27, 45, 0.12);
+  --shadow-bubble: 0 1px 1px rgba(16, 27, 45, 0.05), 0 6px 16px -8px rgba(30, 122, 85, 0.25);
+  --shadow-fab: 0 10px 24px -8px rgba(29, 99, 232, 0.45);
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+/* Thème sombre — mêmes rôles de couleur, valeurs inversées. Basculé via
+   l'attribut data-theme sur <html> (voir src/lib/theme.js). */
+[data-theme="dark"] {
+  --color-ink: #F1F4FA;
+  --color-ink-soft: #C6CEDD;
+  --color-muted: #8993A8;
+  --color-paper: #0D131F;
+  --color-surface: #171F2E;
+  --color-border: #2A3346;
+
+  --color-brand-blue: #5B9BFF;
+  --color-brand-blue-light: #8CBBFF;
+  --color-brand-teal: #35D6BB;
+  --color-brand-teal-light: #6EEBD4;
+
+  --color-bubble: #14301F;
+  --color-bubble-border: #1F4A2F;
+  --color-bubble-accent: #6FE0A6;
+
+  --color-danger: #FF7A70;
+  --color-danger-soft: #3A2020;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  --shadow-bubble: 0 1px 1px rgba(0, 0, 0, 0.3), 0 6px 16px -8px rgba(0, 0, 0, 0.45);
+  --shadow-fab: 0 10px 24px -8px rgba(91, 155, 255, 0.35);
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand-blue);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Bulle de message — le "signature element" de l'app : chaque chant
+   se lit et se partage comme un vrai message, avec une petite pointe
+   de bulle, comme sur WhatsApp/Telegram. */
+.bubble-tail::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -7px;
+  width: 16px;
+  height: 16px;
+  background: inherit;
+  border-top-left-radius: 2px;
+  clip-path: polygon(100% 0, 0 0, 100% 100%);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.input {
+  width: 100%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.875rem;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  color: var(--color-ink);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.input::placeholder {
+  color: var(--color-muted);
+}
+
+.input:focus {
+  border-color: var(--color-brand-blue);
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Impression d'une liste de chants : on ne garde que la feuille de route,
+   sans navigation, boutons ni ombres. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  #print-area {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+  body {
+    background: #fff !important;
+  }
+}
