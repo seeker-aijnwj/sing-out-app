@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/sing-out-app/sw.js', { scope: '/sing-out-app/' })})}
