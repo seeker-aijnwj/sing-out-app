@@ -16,6 +16,8 @@ import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import Account from "./pages/Account.jsx";
 import Admin from "./pages/Admin.jsx";
+import ImportSongs from "./pages/ImportSongs.jsx";
+import Preorder from "./pages/Preorder.jsx";
 
 export default function App() {
   useEffect(() => {
@@ -42,6 +44,8 @@ export default function App() {
         <Route path="/inscription" element={<Register />} />
         <Route path="/compte" element={<Account />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/chants/importer" element={<ImportSongs />} />
+        <Route path="/precommande" element={<Preorder />} />
         <Route path="*" element={<Home />} />
       </Routes>
     </HashRouter>

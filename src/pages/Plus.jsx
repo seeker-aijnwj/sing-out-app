@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Info, Download, Upload, Trash, ChevronRight, Cloud, CloudOff, RefreshCw, AlertTriangle, BarChart3, Sun, Moon, UserRound, LogIn, ShieldAlert } from "lucide-react";
+import { Info, Download, Upload, Trash, ChevronRight, Cloud, CloudOff, RefreshCw, AlertTriangle, BarChart3, Sun, Moon, UserRound, LogIn, ShieldAlert, Rocket } from "lucide-react";
 import Header from "../components/Header.jsx";
 import BottomNav from "../components/BottomNav.jsx";
 import { isFirebaseConfigured } from "../lib/firebase.js";
@@ -49,18 +49,24 @@ const STATUS_INFO = {
 };
 
 // Chaque entrée ci-dessous est une future commande. Pour en ajouter une,
-// il suffit d'ajouter un objet { icon, title, hint, onClick } à ce tableau :
-// la page se met à jour automatiquement, sans toucher au reste de l'app.
+// il suffit d'ajouter un objet { icon, title, hint, disabled?, to? } à ce
+// tableau : la page se met à jour automatiquement, sans toucher au reste de l'app.
 const ITEMS = [
-  {
-    icon: Download,
-    title: "Exporter mes données",
-    hint: "Bientôt disponible",
-    disabled: true,
-  },
   {
     icon: Upload,
     title: "Importer des chants",
+    hint: "Depuis un fichier JSON — réservé aux Membres Plus/Pro",
+    to: "/chants/importer",
+  },
+  {
+    icon: Rocket,
+    title: "Précommander la v1.0.0",
+    hint: "Laissez vos coordonnées pour être parmi les premiers",
+    to: "/precommande",
+  },
+  {
+    icon: Download,
+    title: "Exporter mes données",
     hint: "Bientôt disponible",
     disabled: true,
   },
@@ -73,7 +79,7 @@ const ITEMS = [
   {
     icon: Info,
     title: "À propos de Sing Out",
-    hint: "Version 1.0 — vos données restent sur cet appareil",
+    hint: "Version alpha — vos données restent sur cet appareil",
     disabled: true,
   },
 ];
@@ -233,24 +239,40 @@ export default function Plus() {
 
         <div className="space-y-2 mt-6">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted mb-2 px-1">Autres commandes</h2>
-          {ITEMS.map((item) => (
-            <button
-              key={item.title}
-              type="button"
-              disabled={item.disabled}
-              onClick={item.onClick}
-              className="w-full flex items-center gap-3 bg-surface rounded-2xl border border-border px-4 py-3.5 shadow-card text-left disabled:opacity-60 disabled:cursor-not-allowed enabled:hover:border-brand-blue/40 transition-colors"
-            >
-              <span className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-brand-blue/10 text-brand-blue">
-                <item.icon size={18} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="font-display font-semibold text-ink truncate">{item.title}</p>
-                {item.hint && <p className="text-xs text-muted truncate">{item.hint}</p>}
-              </div>
-              {!item.disabled && <ChevronRight size={18} className="text-border shrink-0" />}
-            </button>
-          ))}
+          {ITEMS.map((item) =>
+            item.to ? (
+              <Link
+                key={item.title}
+                to={item.to}
+                className="w-full flex items-center gap-3 bg-surface rounded-2xl border border-border px-4 py-3.5 shadow-card text-left hover:border-brand-blue/40 transition-colors"
+              >
+                <span className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-brand-blue/10 text-brand-blue">
+                  <item.icon size={18} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-display font-semibold text-ink truncate">{item.title}</p>
+                  {item.hint && <p className="text-xs text-muted truncate">{item.hint}</p>}
+                </div>
+                <ChevronRight size={18} className="text-border shrink-0" />
+              </Link>
+            ) : (
+              <button
+                key={item.title}
+                type="button"
+                disabled={item.disabled}
+                className="w-full flex items-center gap-3 bg-surface rounded-2xl border border-border px-4 py-3.5 shadow-card text-left disabled:opacity-60 disabled:cursor-not-allowed enabled:hover:border-brand-blue/40 transition-colors"
+              >
+                <span className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-brand-blue/10 text-brand-blue">
+                  <item.icon size={18} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-display font-semibold text-ink truncate">{item.title}</p>
+                  {item.hint && <p className="text-xs text-muted truncate">{item.hint}</p>}
+                </div>
+                {!item.disabled && <ChevronRight size={18} className="text-border shrink-0" />}
+              </button>
+            )
+          )}
         </div>
 
         <p className="text-xs text-muted text-center mt-8 px-6">

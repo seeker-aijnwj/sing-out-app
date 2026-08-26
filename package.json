@@ -1,7 +1,7 @@
 {
   "name": "sing-out-app",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.5.0",
   "type": "module",
   "homepage": "https.//seeker-aijnwj.github.io/sing-out-app/",
   "scripts": {

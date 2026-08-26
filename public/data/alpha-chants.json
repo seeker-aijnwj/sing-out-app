@@ -1,0 +1,104 @@
+[
+  {
+    "title": "10 000 raisons",
+    "category": "Louange",
+    "originalKey": "",
+    "youtubeUrl": "https://www.youtube.com/watch?v=KMK1lMEcvlM",
+    "notes": "Reprise française par Horizon Louange, d'après « 10,000 Reasons » de Matt Redman. Paroles à compléter par vos soins.",
+    "tags": ["louange", "adoration"],
+    "chords": "",
+    "lyrics": [{ "label": "", "text": "" }]
+  },
+  {
+    "title": "Emmanuel",
+    "category": "Adoration",
+    "originalKey": "",
+    "youtubeUrl": "https://www.youtube.com/watch?v=7lEuAbgyoSw",
+    "notes": "Dena Mwana, extrait de l'album Monerie. Paroles à compléter par vos soins.",
+    "tags": ["adoration"],
+    "chords": "",
+    "lyrics": [{ "label": "", "text": "" }]
+  },
+  {
+    "title": "Je Bénirai L'Éternel",
+    "category": "Louange",
+    "originalKey": "",
+    "youtubeUrl": "https://www.youtube.com/watch?v=XR9vBZa9cjo",
+    "notes": "Dena Mwana, d'après Psaumes 34, 2-3. Paroles à compléter par vos soins.",
+    "tags": ["louange"],
+    "chords": "",
+    "lyrics": [{ "label": "", "text": "" }]
+  },
+  {
+    "title": "Jamais Sans Lui",
+    "category": "Louange",
+    "originalKey": "",
+    "youtubeUrl": "https://www.youtube.com/watch?v=oNq2gtonxK8",
+    "notes": "Dena Mwana. Paroles à compléter par vos soins.",
+    "tags": ["louange"],
+    "chords": "",
+    "lyrics": [{ "label": "", "text": "" }]
+  },
+  {
+    "title": "Ye Oyo",
+    "category": "Adoration",
+    "originalKey": "",
+    "youtubeUrl": "https://www.youtube.com/watch?v=et8GtqISA6E",
+    "notes": "Pasteur Moïse Mbiye. Paroles à compléter par vos soins.",
+    "tags": ["adoration"],
+    "chords": "",
+    "lyrics": [{ "label": "", "text": "" }]
+  },
+  {
+    "title": "Action de Grâce",
+    "category": "Louange",
+    "originalKey": "",
+    "youtubeUrl": "https://www.youtube.com/watch?v=aD5PGQCvU0g",
+    "notes": "Pasteur Moïse Mbiye feat. Chorale Chœur de Koré. Paroles à compléter par vos soins.",
+    "tags": ["louange", "chorale"],
+    "chords": "",
+    "lyrics": [{ "label": "", "text": "" }]
+  },
+  {
+    "title": "Tu es Yahweh",
+    "category": "Adoration",
+    "originalKey": "",
+    "youtubeUrl": "https://www.youtube.com/watch?v=Aq1IIN4Zn3s",
+    "notes": "Jessy Ludovic, adaptation française de « You Are Yahweh » de Steve Crown. Paroles à compléter par vos soins.",
+    "tags": ["adoration"],
+    "chords": "",
+    "lyrics": [{ "label": "", "text": "" }]
+  },
+  {
+    "title": "Que Ma Bouche Chante Ta Louange",
+    "category": "Louange",
+    "originalKey": "",
+    "youtubeUrl": "https://www.youtube.com/watch?v=7HsmhIhd1ws",
+    "notes": "Paroles à compléter par vos soins.",
+    "tags": ["louange"],
+    "chords": "",
+    "lyrics": [{ "label": "", "text": "" }]
+  },
+  {
+    "title": "Saint-Esprit, agis encore",
+    "category": "Recueillement",
+    "originalKey": "",
+    "youtubeUrl": "",
+    "notes": "Chant traditionnel d'assemblée. Complétez le couplet ci-dessous ou remplacez-le par votre propre version.",
+    "tags": ["recueillement"],
+    "chords": "",
+    "lyrics": [
+      { "label": "V1", "text": "Saint-Esprit,\nAgis encore\nAgis encore\nDans ma vie" }
+    ]
+  },
+  {
+    "title": "Béni soit le Seigneur",
+    "category": "Début de culte",
+    "originalKey": "",
+    "youtubeUrl": "",
+    "notes": "Chant d'ouverture traditionnel, à adapter selon votre assemblée.",
+    "tags": ["ouverture"],
+    "chords": "",
+    "lyrics": [{ "label": "", "text": "" }]
+  }
+]

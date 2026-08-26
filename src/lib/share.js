@@ -5,6 +5,10 @@
 export function formatSongText(song) {
   const lines = [`*Chant : ${song.title}*`];
   if (song.originalKey) lines.push(`Gamme : ${song.originalKey}`);
+  if (song.youtubeUrl) {
+    if (hasLyrics) lines.push("");
+    lines.push(song.youtubeUrl);
+  }
   lines.push("");
   const hasLyrics = song.lyrics?.some((v) => v.text?.trim());
   if (hasLyrics) {
@@ -14,10 +18,6 @@ export function formatSongText(song) {
       lines.push(verse.text.trim());
       if (i < song.lyrics.length - 1) lines.push("");
     });
-  }
-  if (song.youtubeUrl) {
-    if (hasLyrics) lines.push("");
-    lines.push(song.youtubeUrl);
   }
   return lines.join("\n").trim();
 }

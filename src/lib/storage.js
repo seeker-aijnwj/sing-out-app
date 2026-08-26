@@ -134,6 +134,47 @@ export function toggleFavorite(id) {
   return songs[idx];
 }
 
+// ---------- Import de chants ----------
+// Réservé aux Membres Plus/Pro/Admin côté UI. Accepte un tableau d'objets
+// { title, category?, originalKey?, youtubeUrl?, notes?, tags?, chords?, lyrics? }
+// — le même format que celui utilisé pour l'export/les fichiers d'exemple
+// (voir alpha-chants.json). Les doublons de titre (insensible à la casse)
+// sont ignorés pour éviter les imports répétés par erreur.
+
+export function importSongs(list) {
+  if (!Array.isArray(list)) throw new Error("Format invalide : un tableau de chants est attendu.");
+  const existingTitles = new Set(getSongsRaw().map((s) => s.title.trim().toLowerCase()));
+  let imported = 0;
+  let skipped = 0;
+  for (const entry of list) {
+    const title = entry?.title?.trim();
+    if (!title) {
+      skipped++;
+      continue;
+    }
+    if (existingTitles.has(title.toLowerCase())) {
+      skipped++;
+      continue;
+    }
+    saveSong({
+      title,
+      category: entry.category?.trim() || "",
+      originalKey: entry.originalKey?.trim() || "",
+      youtubeUrl: entry.youtubeUrl?.trim() || "",
+      notes: entry.notes?.trim() || "",
+      tags: Array.isArray(entry.tags) ? entry.tags : [],
+      chords: entry.chords?.trim() || "",
+      lyrics:
+        Array.isArray(entry.lyrics) && entry.lyrics.length
+          ? entry.lyrics.map((v) => ({ id: v.id || uid(), label: v.label || "", text: v.text || "" }))
+          : [{ id: uid(), label: "", text: "" }],
+    });
+    existingTitles.add(title.toLowerCase());
+    imported++;
+  }
+  return { imported, skipped };
+}
+
 export function deleteSong(id) {
   write(SONGS_KEY, read(SONGS_KEY).filter((s) => s.id !== id));
   // On retire aussi le chant des listes qui le référencent, sans les casser.
@@ -432,4 +473,36 @@ export function seedIfEmpty() {
   ]);
 
   notify();
+}
+
+// ---------- Précommandes v1.0.0 ----------
+// Formulaire public (pas besoin d'être connecté) : la personne précommande,
+// la demande est gardée en local pour que l'admin la retrouve dans l'app
+// même hors-ligne, et un e-mail est proposé en parallèle (voir Preorder.jsx).
+
+const PREORDERS_KEY = "singout:preorders";
+
+export function getPreorders() {
+  return read(PREORDERS_KEY, [])
+    .slice()
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export function savePreorder(data) {
+  const preorders = read(PREORDERS_KEY, []);
+  const entry = {
+    id: uid(),
+    nom: data.nom?.trim() || "",
+    prenom: data.prenom?.trim() || "",
+    email: data.email?.trim() || "",
+    contact: data.contact?.trim() || "",
+    assemblee: data.assemblee?.trim() || "",
+    tailleEquipe: data.tailleEquipe?.trim() || "",
+    message: data.message?.trim() || "",
+    createdAt: new Date().toISOString(),
+  };
+  preorders.push(entry);
+  write(PREORDERS_KEY, preorders);
+  notify();
+  return entry;
 }

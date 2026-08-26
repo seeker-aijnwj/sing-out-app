@@ -14,6 +14,7 @@ import {
   Cloud,
   RefreshCw,
   X,
+  Rocket,
 } from "lucide-react";
 import BottomNav from "../components/BottomNav.jsx";
 import logo from "../assets/logo.png";
@@ -162,6 +163,16 @@ export default function Home() {
             </div>
           )}
         </div>
+
+        {/* Bannière précommande v1.0.0 */}
+        <Link
+          to="/precommande"
+          className="flex items-center gap-3 bg-gradient-to-r from-brand-blue to-brand-teal text-white rounded-2xl px-4 py-3.5 shadow-fab active:scale-[0.98] transition-transform"
+        >
+          <Rocket size={18} className="shrink-0" />
+          <span className="text-sm font-medium flex-1">La version 1.0.0 arrive — précommandez-la</span>
+          <ChevronRight size={16} className="shrink-0" />
+        </Link>
 
         {/* Actions rapides */}
         <div className="grid grid-cols-2 gap-3">

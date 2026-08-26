@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Check, X, ShieldAlert, Clock } from "lucide-react";
+import { ArrowLeft, Check, X, ShieldAlert, Clock, Rocket, Mail } from "lucide-react";
 import {
   useCurrentUser,
   getAllUsers,
@@ -10,6 +10,8 @@ import {
   MEMBERSHIP_LABELS,
   onAuthChange,
 } from "../lib/auth.js";
+import { getPreorders, onDataChange } from "../lib/storage.js";
+import { formatDateLong } from "../lib/share.js";
 
 const TIER_OPTIONS = ["member", "plus", "pro"];
 
@@ -19,6 +21,7 @@ export default function Admin() {
   const [, forceRefresh] = useState(0);
 
   useEffect(() => onAuthChange(() => forceRefresh((n) => n + 1)), []);
+  useEffect(() => onDataChange(() => forceRefresh((n) => n + 1)), []);
 
   if (!user || !user.isAdmin) {
     return (
@@ -38,6 +41,7 @@ export default function Admin() {
   const users = getAllUsers();
   const pending = users.filter((u) => u.membershipStatus === "pending");
   const others = users.filter((u) => u.membershipStatus !== "pending");
+  const preorders = getPreorders();
 
   return (
     <div className="min-h-full pb-10">
@@ -135,6 +139,44 @@ export default function Admin() {
               </div>
             ))}
           </div>
+        </section>
+
+        <section>
+          <h2 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted mb-2 px-1">
+            <Rocket size={13} /> Précommandes v1.0.0 {preorders.length > 0 && `· ${preorders.length}`}
+          </h2>
+          {preorders.length === 0 ? (
+            <p className="text-sm text-muted bg-surface border border-border rounded-2xl px-4 py-3.5 shadow-card">
+              Aucune précommande pour l'instant.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {preorders.map((p) => (
+                <div key={p.id} className="bg-surface border border-border rounded-2xl shadow-card px-4 py-3.5">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="font-display font-semibold text-sm text-ink truncate">
+                      {p.prenom} {p.nom}
+                    </p>
+                    <span className="text-xs text-muted shrink-0">{formatDateLong(p.createdAt.slice(0, 10))}</span>
+                  </div>
+                  <p className="text-xs text-muted truncate mb-1">
+                    <a href={`mailto:${p.email}`} className="hover:underline">{p.email}</a> · {p.contact}
+                  </p>
+                  <p className="text-xs text-muted mb-1">
+                    {p.assemblee}
+                    {p.tailleEquipe && ` · équipe ~${p.tailleEquipe}`}
+                  </p>
+                  {p.message && <p className="text-xs text-ink-soft mt-2 border-t border-border pt-2">{p.message}</p>}
+                  <a
+                    href={`mailto:${p.email}`}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-blue mt-2"
+                  >
+                    <Mail size={12} /> Répondre
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       </main>
     </div>
