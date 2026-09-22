@@ -35,9 +35,19 @@ export function getFirestoreDb() {
   }
   if (!dbPromise) {
     dbPromise = Promise.all([import("firebase/app"), import("firebase/firestore")]).then(
-      ([{ initializeApp, getApps }, { getFirestore }]) => {
+      ([{ initializeApp, getApps }, { initializeFirestore, getFirestore }]) => {
         const app = getApps().length ? getApps()[0] : initializeApp(config);
-        return getFirestore(app);
+        try {
+          // ignoreUndefinedProperties évite un échec de TOUT le lot d'écriture
+          // (batch) si un seul chant a un champ optionnel à `undefined` — par
+          // exemple un champ ajouté récemment (langue, accords…) resté vide
+          // sur d'anciens chants. Doit être appelé avant tout getFirestore().
+          return initializeFirestore(app, { ignoreUndefinedProperties: true });
+        } catch {
+          // Si Firestore a déjà été initialisé ailleurs (ex. hot-reload en
+          // dev), on retombe sur l'instance existante.
+          return getFirestore(app);
+        }
       }
     );
   }

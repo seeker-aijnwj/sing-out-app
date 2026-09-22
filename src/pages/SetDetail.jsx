@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { ArrowLeft, Pencil, Trash2, Share2, CalendarDays, Music2, Mic2, Music4, Copy, Printer, Presentation, UserRound } from "lucide-react";
-import { getSet, getSongs, deleteSet, duplicateSet } from "../lib/storage.js";
+import { getSet, getSongs, deleteSet, duplicateSet, onDataChange } from "../lib/storage.js";
 import { formatSetText, formatDateLong } from "../lib/share.js";
 import ShareSheet from "../components/ShareSheet.jsx";
 import { useAccess } from "../components/AccessGate.jsx";
@@ -9,13 +9,18 @@ import { useAccess } from "../components/AccessGate.jsx";
 export default function SetDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const set = getSet(id);
-  const songs = getSongs();
+  const [set, setSet] = useState(() => getSet(id));
+  const [songs, setSongs] = useState(() => getSongs());
   const songsById = useMemo(() => Object.fromEntries(songs.map((s) => [s.id, s])), [songs]);
   const { allowed: canUseMemberFeatures } = useAccess("member");
 
   const [shareOpen, setShareOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  useEffect(() => onDataChange(() => {
+    setSet(getSet(id));
+    setSongs(getSongs());
+  }), [id]);
 
   if (!set) {
     return (

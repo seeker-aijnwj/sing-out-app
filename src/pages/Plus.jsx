@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Info, Download, Upload, Trash, ChevronRight, Cloud, CloudOff, RefreshCw, AlertTriangle, BarChart3, Sun, Moon, UserRound, LogIn, ShieldAlert, Rocket } from "lucide-react";
+import { Info, Download, Upload, Trash, ChevronRight, Cloud, CloudOff, RefreshCw, AlertTriangle, BarChart3, Sun, Moon, UserRound, LogIn, ShieldAlert, Rocket, Share2, Lightbulb } from "lucide-react";
 import Header from "../components/Header.jsx";
 import BottomNav from "../components/BottomNav.jsx";
+import ShareSheet from "../components/ShareSheet.jsx";
 import { isFirebaseConfigured } from "../lib/firebase.js";
 import { getSyncStatus, onSyncStatusChange, getLastSyncAt, syncNow } from "../lib/sync.js";
 import { getTheme, setTheme } from "../lib/theme.js";
-import { formatDateLong } from "../lib/share.js";
+import { formatDateLong, formatAppShareText } from "../lib/share.js";
 import { useCurrentUser, MEMBERSHIP_LABELS } from "../lib/auth.js";
 
 const STATUS_INFO = {
@@ -59,10 +60,22 @@ const ITEMS = [
     to: "/chants/importer",
   },
   {
+    icon: Lightbulb,
+    title: "Faire une suggestion",
+    hint: "Réservé aux Membres Plus/Pro",
+    to: "/suggestions",
+  },
+  {
     icon: Rocket,
     title: "Précommander la v1.0.0",
     hint: "Laissez vos coordonnées pour être parmi les premiers",
     to: "/precommande",
+  },
+  {
+    icon: Share2,
+    title: "Partager Sing Out",
+    hint: "Faites connaître l'appli autour de vous",
+    action: "share",
   },
   {
     icon: Download,
@@ -91,6 +104,7 @@ export default function Plus() {
   const [status, setStatus] = useState(getSyncStatus());
   const [lastSync, setLastSync] = useState(getLastSyncAt());
   const [theme, setThemeState] = useState(getTheme());
+  const [shareAppOpen, setShareAppOpen] = useState(false);
 
   useEffect(() => onSyncStatusChange((s) => {
     setStatus(s);
@@ -222,7 +236,7 @@ export default function Plus() {
 
           {configured ? (
             <button
-              onClick={() => syncNow()}
+              onClick={() => syncNow({ pull: true })}
               disabled={status === "syncing"}
               className="mt-3 w-full flex items-center justify-center gap-2 text-sm font-medium text-brand-blue bg-brand-blue/5 rounded-xl py-2.5 disabled:opacity-50"
             >
@@ -260,6 +274,7 @@ export default function Plus() {
                 key={item.title}
                 type="button"
                 disabled={item.disabled}
+                onClick={item.action === "share" ? () => setShareAppOpen(true) : undefined}
                 className="w-full flex items-center gap-3 bg-surface rounded-2xl border border-border px-4 py-3.5 shadow-card text-left disabled:opacity-60 disabled:cursor-not-allowed enabled:hover:border-brand-blue/40 transition-colors"
               >
                 <span className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-brand-blue/10 text-brand-blue">
@@ -279,6 +294,13 @@ export default function Plus() {
           D'autres commandes apparaîtront ici au fil des prochaines mises à jour de Sing Out.
         </p>
       </main>
+
+      <ShareSheet
+        open={shareAppOpen}
+        onClose={() => setShareAppOpen(false)}
+        title="Sing Out"
+        text={formatAppShareText()}
+      />
 
       <BottomNav />
     </div>

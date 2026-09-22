@@ -1,12 +1,26 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useLocation, Link } from "react-router-dom";
-import { ArrowLeft, Pencil, Trash2, Share2, Video, CheckCheck, Music4, Mic2, CalendarDays, History, Star, Presentation, Tag, MessageSquare, UserRound, Send } from "lucide-react";
-import { getSong, deleteSong, getSongHistory, toggleFavorite, onDataChange, getComments, addComment, deleteComment } from "../lib/storage.js";
+import { ArrowLeft, Pencil, Trash2, Share2, Video, CheckCheck, Music4, Mic2, CalendarDays, History, Star, Presentation, Tag, MessageSquare, UserRound, Send, Feather, ClipboardList } from "lucide-react";
+import {
+  getSong,
+  deleteSong,
+  getSongHistory,
+  toggleFavorite,
+  onDataChange,
+  getComments,
+  addComment,
+  deleteComment,
+  getProgressNotes,
+  addProgressNote,
+  deleteProgressNote,
+} from "../lib/storage.js";
 import { formatSongText, formatDateLong } from "../lib/share.js";
 import ShareSheet from "../components/ShareSheet.jsx";
 import PresentMode from "../components/PresentMode.jsx";
 import AccessGate, { useAccess } from "../components/AccessGate.jsx";
 import { useCurrentUser } from "../lib/auth.js";
+
+const PROGRESS_LEVELS = ["Débutant", "En cours", "Maîtrisé"];
 
 export default function SongDetail() {
   const { id } = useParams();
@@ -18,13 +32,21 @@ export default function SongDetail() {
   const [presenting, setPresenting] = useState(Boolean(location.state?.present));
   const [comments, setComments] = useState(() => getComments(id));
   const [commentText, setCommentText] = useState("");
+  const [progressNotes, setProgressNotes] = useState([]);
+  const [progressText, setProgressText] = useState("");
+  const [progressLevel, setProgressLevel] = useState("En cours");
   const currentUser = useCurrentUser();
   const { allowed: canUsePlusFeatures } = useAccess("plus");
+
+  useEffect(() => {
+    setProgressNotes(currentUser ? getProgressNotes(id, currentUser.id) : []);
+  }, [id, currentUser]);
 
   useEffect(() => onDataChange(() => {
     setSong(getSong(id));
     setComments(getComments(id));
-  }), [id]);
+    setProgressNotes(currentUser ? getProgressNotes(id, currentUser.id) : []);
+  }), [id, currentUser]);
 
   if (!song) {
     return (
@@ -64,6 +86,11 @@ export default function SongDetail() {
                 <Music4 size={12} /> {song.originalKey}
               </span>
             )}
+            {song.language && song.language !== "Français" && (
+              <span className="ml-2 inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-brand-blue bg-brand-blue/10 rounded-full px-2 py-0.5">
+                {song.language}
+              </span>
+            )}
           </p>
           <button
             onClick={() => toggleFavorite(song.id)}
@@ -91,6 +118,11 @@ export default function SongDetail() {
             <h1 className="font-display font-bold text-lg text-bubble-accent mb-3 leading-snug">
               Chant : {song.title}
             </h1>
+            {song.isComposition && (
+              <p className="flex items-center gap-1.5 text-xs font-medium text-bubble-accent/80 -mt-2 mb-3">
+                <Feather size={12} /> Composition originale{song.composer ? ` · ${song.composer}` : ""}
+              </p>
+            )}
 
             <div className="space-y-4">
               {song.lyrics
@@ -286,6 +318,93 @@ export default function SongDetail() {
             <AccessGate
               level="plus"
               hint="Les notes d'équipe (arrangement, tempo, remarques...) sont réservées aux Membres Plus/Pro."
+            />
+          )}
+        </section>
+
+        <section className="mt-6 animate-fade-up">
+          <h2 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted mb-2 px-1">
+            <ClipboardList size={14} /> Ma progression
+          </h2>
+          {canUsePlusFeatures ? (
+            <div className="space-y-2">
+              <p className="text-xs text-muted px-1 -mt-1 mb-1">
+                Personnel : visible seulement par vous, pour vous souvenir comment vous jouez ce chant.
+              </p>
+              {progressNotes.length === 0 ? (
+                <p className="text-sm text-muted bg-surface border border-border rounded-2xl px-4 py-3.5 shadow-card">
+                  Aucune note personnelle pour l'instant.
+                </p>
+              ) : (
+                progressNotes.map((p) => (
+                  <div key={p.id} className="bg-surface border border-border rounded-2xl px-4 py-3 shadow-card">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-1.5">
+                        {p.level && (
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-brand-blue bg-brand-blue/10 rounded-full px-2 py-0.5">
+                            {p.level}
+                          </span>
+                        )}
+                        <span className="text-[11px] text-muted">{new Date(p.createdAt).toLocaleDateString("fr-FR")}</span>
+                      </div>
+                      <button
+                        onClick={() => deleteProgressNote(p.id)}
+                        className="text-danger hover:bg-danger-soft rounded p-0.5"
+                        aria-label="Supprimer cette note"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                    <p className="text-sm text-ink-soft whitespace-pre-line">{p.text}</p>
+                  </div>
+                ))
+              )}
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!progressText.trim()) return;
+                  addProgressNote(song.id, progressText, progressLevel);
+                  setProgressText("");
+                }}
+                className="bg-surface border border-border rounded-2xl px-3 py-2.5 shadow-card space-y-2"
+              >
+                <div className="flex items-center gap-1.5">
+                  {PROGRESS_LEVELS.map((lvl) => (
+                    <button
+                      type="button"
+                      key={lvl}
+                      onClick={() => setProgressLevel(lvl)}
+                      className={`text-xs font-medium rounded-full px-2.5 py-1 transition-colors ${
+                        progressLevel === lvl ? "bg-brand-blue text-white" : "bg-paper text-ink-soft"
+                      }`}
+                    >
+                      {lvl}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    value={progressText}
+                    onChange={(e) => setProgressText(e.target.value)}
+                    placeholder="Ex. Capo 2, gratté, break avant le refrain…"
+                    className="flex-1 bg-transparent text-sm text-ink placeholder:text-muted outline-none"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!progressText.trim()}
+                    className="shrink-0 p-1.5 rounded-full bg-brand-blue text-white disabled:opacity-40"
+                    aria-label="Enregistrer"
+                  >
+                    <Send size={14} />
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : (
+            <AccessGate
+              level="plus"
+              hint="Le suivi personnel de progression est réservé aux Membres Plus/Pro."
             />
           )}
         </section>

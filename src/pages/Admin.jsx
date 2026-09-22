@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Check, X, ShieldAlert, Clock, Rocket, Mail } from "lucide-react";
+import { ArrowLeft, Check, X, ShieldAlert, Clock, Rocket, Mail, Lightbulb } from "lucide-react";
 import {
   useCurrentUser,
   getAllUsers,
@@ -10,7 +10,7 @@ import {
   MEMBERSHIP_LABELS,
   onAuthChange,
 } from "../lib/auth.js";
-import { getPreorders, onDataChange } from "../lib/storage.js";
+import { getPreorders, getSuggestions, onDataChange } from "../lib/storage.js";
 import { formatDateLong } from "../lib/share.js";
 
 const TIER_OPTIONS = ["member", "plus", "pro"];
@@ -42,6 +42,7 @@ export default function Admin() {
   const pending = users.filter((u) => u.membershipStatus === "pending");
   const others = users.filter((u) => u.membershipStatus !== "pending");
   const preorders = getPreorders();
+  const suggestions = getSuggestions();
 
   return (
     <div className="min-h-full pb-10">
@@ -173,6 +174,37 @@ export default function Admin() {
                   >
                     <Mail size={12} /> Répondre
                   </a>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section>
+          <h2 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted mb-2 px-1">
+            <Lightbulb size={13} /> Suggestions {suggestions.length > 0 && `· ${suggestions.length}`}
+          </h2>
+          {suggestions.length === 0 ? (
+            <p className="text-sm text-muted bg-surface border border-border rounded-2xl px-4 py-3.5 shadow-card">
+              Aucune suggestion pour l'instant.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {suggestions.map((s) => (
+                <div key={s.id} className="bg-surface border border-border rounded-2xl shadow-card px-4 py-3.5">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="font-display font-semibold text-sm text-ink truncate">{s.authorName}</p>
+                    <span className="text-xs text-muted shrink-0">{formatDateLong(s.createdAt.slice(0, 10))}</span>
+                  </div>
+                  <p className="text-sm text-ink-soft mt-1">{s.message}</p>
+                  {s.authorEmail && (
+                    <a
+                      href={`mailto:${s.authorEmail}`}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-blue mt-2"
+                    >
+                      <Mail size={12} /> Répondre
+                    </a>
+                  )}
                 </div>
               ))}
             </div>

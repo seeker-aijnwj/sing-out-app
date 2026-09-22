@@ -1,24 +1,36 @@
-// Synchronisation locale → Firebase.
+// Synchronisation locale ↔ Firebase.
 //
 // Ce module gère tout ce qui concerne la communication avec Firebase :
 //  - il ne fait strictement rien tant que Firebase n'est pas configuré
 //    (voir src/lib/firebase.js) — l'app reste 100% fonctionnelle en local ;
 //  - dès qu'une configuration est présente ET qu'une connexion Internet est
 //    détectée, il transfère les chants et listes créés/modifiés localement
-//    vers Firestore, ainsi que les suppressions ;
+//    vers Firestore, ainsi que les suppressions (push) ;
+//  - au démarrage et sur demande manuelle, il rapatrie aussi ce qui existe
+//    dans Firestore mais pas encore sur cet appareil (pull) — c'est ce qui
+//    permet à un nouvel appareil (ou une nouvelle installation, ex. après un
+//    déploiement) de retrouver les chants/listes déjà créés ailleurs ;
 //  - il expose un statut ("disabled" | "offline" | "syncing" | "synced" | "error")
 //    que l'UI peut afficher (voir la page Plus).
 //
-// La synchronisation est volontairement à sens unique (local → cloud) pour
-// l'instant : cet appareil est toujours la source de vérité tant qu'aucun
-// mécanisme de fusion multi-appareils n'a été conçu. Le code est structuré
-// pour qu'ajouter une synchronisation descendante (cloud → local) plus tard
-// n'impose pas de tout réécrire.
+// La fusion pull utilise un simple "dernier écrit gagne" sur `updatedAt` et
+// ne ressuscite jamais un élément supprimé localement (voir les tombstones
+// dans storage.js). Ce n'est pas une synchronisation multi-appareils
+// complète avec résolution de conflits fine — c'est volontairement simple
+// pour la v1, mais suffisant pour que tout le monde voie la même bibliothèque.
 
 import { isFirebaseConfigured, getFirestoreDb } from "./firebase.js";
-import { getSongsRaw, getSetsRaw, getTombstones, clearTombstone, onDataChange } from "./storage.js";
+import {
+  getSongsRaw,
+  getSetsRaw,
+  getTombstones,
+  clearTombstone,
+  onDataChange,
+  upsertSongFromRemote,
+  upsertSetFromRemote,
+} from "./storage.js";
 
-const META_KEY = "singout:sync:meta"; // { songs: {id: updatedAt}, sets: {id: updatedAt}, lastSyncAt }
+const META_KEY = "singout:sync:meta"; // { songs: {id: updatedAt}, sets: {id: updatedAt}, lastSyncAt, lastPullAt }
 
 let status = isFirebaseConfigured() ? "idle" : "disabled";
 let statusListeners = [];
@@ -45,9 +57,15 @@ export function onSyncStatusChange(fn) {
 
 function readMeta() {
   try {
-    return { songs: {}, sets: {}, lastSyncAt: null, ...JSON.parse(localStorage.getItem(META_KEY) || "{}") };
+    return {
+      songs: {},
+      sets: {},
+      lastSyncAt: null,
+      lastPullAt: null,
+      ...JSON.parse(localStorage.getItem(META_KEY) || "{}"),
+    };
   } catch {
-    return { songs: {}, sets: {}, lastSyncAt: null };
+    return { songs: {}, sets: {}, lastSyncAt: null, lastPullAt: null };
   }
 }
 
@@ -59,17 +77,68 @@ export function getLastSyncAt() {
   return readMeta().lastSyncAt;
 }
 
-function scheduleSync(delay = 800) {
+function scheduleSync(delay = 800, opts) {
   if (!isFirebaseConfigured()) return;
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
-    syncNow();
+    syncNow(opts);
   }, delay);
+}
+
+// Rapatrie depuis Firestore tout ce qui n'existe pas encore ici, ou qui y a
+// été modifié plus récemment qu'en local. N'écrase jamais une modification
+// locale plus récente, et ne ressuscite pas un élément supprimé localement.
+//
+// Si deux appareils ont créé un chant du même titre indépendamment (donc
+// avec deux ids différents), un seul est conservé (voir
+// upsertSongFromRemote côté storage.js) : le document Firestore de l'id
+// perdant est alors supprimé ici pour qu'il n'y ait bien qu'un seul chant
+// de ce titre en base, quel que soit le compte qui a synchronisé.
+async function pullFromCloud(db) {
+  const { collection, getDocs, doc, writeBatch } = await import("firebase/firestore");
+  const meta = readMeta();
+  const discardedSongIds = [];
+
+  const songsSnap = await getDocs(collection(db, "songs"));
+  songsSnap.forEach((docSnap) => {
+    const remote = docSnap.data();
+    const { song: merged, discardedId } = upsertSongFromRemote(remote);
+    if (merged) meta.songs[merged.id] = merged.updatedAt;
+    if (discardedId) discardedSongIds.push(discardedId);
+  });
+
+  const setsSnap = await getDocs(collection(db, "sets"));
+  setsSnap.forEach((docSnap) => {
+    const remote = docSnap.data();
+    const merged = upsertSetFromRemote(remote);
+    if (merged) meta.sets[remote.id] = merged.updatedAt;
+  });
+
+  if (discardedSongIds.length > 0) {
+    const cleanupBatch = writeBatch(db);
+    discardedSongIds.forEach((id) => {
+      cleanupBatch.delete(doc(db, "songs", id));
+      delete meta.songs[id];
+    });
+    try {
+      await cleanupBatch.commit();
+    } catch (err) {
+      // Pas grave si ça échoue (ex. permissions) : le doublon restera en
+      // base mais n'apparaîtra plus en local sur aucun appareil grâce à la
+      // fusion par titre — juste un peu de ménage en moins.
+      console.warn("[Sing Out] Nettoyage des doublons Firestore impossible :", err);
+    }
+  }
+
+  meta.lastPullAt = new Date().toISOString();
+  writeMeta(meta);
 }
 
 // Pousse vers Firestore uniquement ce qui a changé depuis le dernier envoi
 // réussi (comparaison sur `updatedAt`), plus les suppressions en attente.
-export async function syncNow() {
+// Avec { pull: true }, rapatrie d'abord ce qui manque localement (voir
+// pullFromCloud ci-dessus) — utilisé au démarrage et sur demande manuelle.
+export async function syncNow({ pull = false } = {}) {
   if (!isFirebaseConfigured()) {
     setStatus("disabled");
     return { ok: false, reason: "disabled" };
@@ -85,6 +154,11 @@ export async function syncNow() {
   try {
     const db = await getFirestoreDb();
     const { doc, writeBatch } = await import("firebase/firestore");
+
+    if (pull) {
+      await pullFromCloud(db);
+    }
+
     const meta = readMeta();
     const batch = writeBatch(db);
     let ops = 0;
@@ -133,7 +207,8 @@ export async function syncNow() {
 }
 
 // À appeler une fois au démarrage de l'app (voir App.jsx). Se branche sur
-// les événements réseau et sur les changements de données locales.
+// les événements réseau et sur les changements de données locales, et
+// rapatrie une première fois ce qui existe déjà dans le cloud.
 export function initSync() {
   if (initialized) return;
   initialized = true;
@@ -143,12 +218,12 @@ export function initSync() {
     return;
   }
 
-  window.addEventListener("online", () => scheduleSync(200));
+  window.addEventListener("online", () => scheduleSync(200, { pull: true }));
   window.addEventListener("offline", () => setStatus("offline"));
   onDataChange(() => scheduleSync());
 
   if (typeof navigator !== "undefined" && navigator.onLine) {
-    scheduleSync(1000);
+    scheduleSync(300, { pull: true });
   } else {
     setStatus("offline");
   }

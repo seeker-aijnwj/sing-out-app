@@ -16,6 +16,13 @@ function uid() {
   return (crypto.randomUUID && crypto.randomUUID()) || `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+// Normalisation d'un titre pour comparer deux chants indépendamment de la
+// casse, des espaces superflus et des espaces multiples — utilisé pour
+// empêcher les doublons, en local comme pendant la synchronisation.
+function normalizeTitle(title) {
+  return (title || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 function read(key) {
   try {
     const raw = localStorage.getItem(key);
@@ -101,6 +108,42 @@ export function getSongsRaw() {
   return read(SONGS_KEY);
 }
 
+// Insère/actualise un chant reçu de Firestore, sans jamais écraser une
+// version locale plus récente ni ressusciter un chant supprimé localement
+// en attente de propagation (tombstone). Contrairement à saveSong(), ne
+// déclenche pas de nouvel envoi vers le cloud (le document est déjà là-bas).
+// Si un chant local porte déjà le même titre (créé indépendamment sur un
+// autre appareil, donc avec un id différent), on ne crée pas de doublon :
+// on garde la version la plus récente sous l'id déjà présent localement, et
+// on renvoie l'id "perdant" pour que l'appelant (sync.js) puisse supprimer
+// le document Firestore devenu orphelin.
+export function upsertSongFromRemote(remote) {
+  if (!remote?.id || !remote?.title) return { song: null, discardedId: null };
+  if (readTombstones().songs.includes(remote.id)) return { song: null, discardedId: null };
+  const songs = read(SONGS_KEY);
+  const idx = songs.findIndex((s) => s.id === remote.id);
+
+  if (idx === -1) {
+    const titleClashIdx = songs.findIndex((s) => normalizeTitle(s.title) === normalizeTitle(remote.title));
+    if (titleClashIdx !== -1) {
+      if ((remote.updatedAt || "") > (songs[titleClashIdx].updatedAt || "")) {
+        songs[titleClashIdx] = { ...remote, id: songs[titleClashIdx].id };
+        write(SONGS_KEY, songs);
+        notify();
+      }
+      return { song: songs[titleClashIdx], discardedId: remote.id };
+    }
+    songs.push(remote);
+  } else if ((remote.updatedAt || "") > (songs[idx].updatedAt || "")) {
+    songs[idx] = remote;
+  } else {
+    return { song: songs[idx], discardedId: null };
+  }
+  write(SONGS_KEY, songs);
+  notify();
+  return { song: remote, discardedId: null };
+}
+
 export function getSong(id) {
   return read(SONGS_KEY).find((s) => s.id === id) || null;
 }
@@ -108,6 +151,12 @@ export function getSong(id) {
 export function saveSong(song) {
   const songs = read(SONGS_KEY);
   const now = new Date().toISOString();
+  if (song.title !== undefined) {
+    const clash = songs.find(
+      (s) => s.id !== song.id && normalizeTitle(s.title) === normalizeTitle(song.title)
+    );
+    if (clash) throw new Error(`Un chant intitulé « ${clash.title} » existe déjà.`);
+  }
   if (song.id) {
     const idx = songs.findIndex((s) => s.id === song.id);
     const updated = { ...songs[idx], ...song, updatedAt: now };
@@ -117,7 +166,7 @@ export function saveSong(song) {
     notify();
     return updated;
   }
-  const created = { favorite: false, tags: [], chords: "", ...song, id: uid(), createdAt: now, updatedAt: now, ...authorStamp() };
+  const created = { favorite: false, tags: [], chords: "", language: "Français", draft: false, isComposition: false, composer: "", ...song, id: uid(), createdAt: now, updatedAt: now, ...authorStamp() };
   songs.push(created);
   write(SONGS_KEY, songs);
   notify();
@@ -164,6 +213,7 @@ export function importSongs(list) {
       notes: entry.notes?.trim() || "",
       tags: Array.isArray(entry.tags) ? entry.tags : [],
       chords: entry.chords?.trim() || "",
+      language: entry.language?.trim() || "Français",
       lyrics:
         Array.isArray(entry.lyrics) && entry.lyrics.length
           ? entry.lyrics.map((v) => ({ id: v.id || uid(), label: v.label || "", text: v.text || "" }))
@@ -190,6 +240,54 @@ export function deleteSong(id) {
   notify();
 }
 
+export function duplicateSong(id) {
+  const original = getSong(id);
+  if (!original) return null;
+  const now = new Date().toISOString();
+  let title = `Copie de ${original.title}`;
+  const songs = read(SONGS_KEY);
+  // Garantit l'unicité du titre même si "Copie de X" existe déjà.
+  let n = 2;
+  while (songs.some((s) => normalizeTitle(s.title) === normalizeTitle(title))) {
+    title = `Copie de ${original.title} (${n})`;
+    n++;
+  }
+  const duplicated = {
+    ...original,
+    id: uid(),
+    title,
+    favorite: false,
+    createdAt: now,
+    updatedAt: now,
+    lyrics: (original.lyrics || []).map((v) => ({ ...v, id: uid() })),
+    ...authorStamp(),
+  };
+  songs.push(duplicated);
+  write(SONGS_KEY, songs);
+  notify();
+  return duplicated;
+}
+
+// ---------- Actions groupées (sélection multiple) ----------
+// Réservées aux Membres Plus/Pro/Admin côté UI (voir Songs.jsx / Sets.jsx).
+
+export function deleteSongs(ids) {
+  ids.forEach((id) => deleteSong(id));
+}
+
+export function duplicateSongs(ids) {
+  return ids.map((id) => duplicateSong(id)).filter(Boolean);
+}
+
+export function setSongsDraft(ids, draft) {
+  const songs = read(SONGS_KEY);
+  const idSet = new Set(ids);
+  const now = new Date().toISOString();
+  const updated = songs.map((s) => (idSet.has(s.id) ? { ...s, draft, updatedAt: now } : s));
+  write(SONGS_KEY, updated);
+  notify();
+}
+
 // ---------- Listes de chants (sets) ----------
 
 export function getSets() {
@@ -199,6 +297,24 @@ export function getSets() {
 // Lecture non triée, pour la synchronisation.
 export function getSetsRaw() {
   return read(SETS_KEY);
+}
+
+// Voir upsertSongFromRemote() ci-dessus pour la logique de fusion.
+export function upsertSetFromRemote(remote) {
+  if (!remote?.id || !remote?.title) return null;
+  if (readTombstones().sets.includes(remote.id)) return null;
+  const sets = read(SETS_KEY);
+  const idx = sets.findIndex((s) => s.id === remote.id);
+  if (idx === -1) {
+    sets.push(remote);
+  } else if ((remote.updatedAt || "") > (sets[idx].updatedAt || "")) {
+    sets[idx] = remote;
+  } else {
+    return sets[idx];
+  }
+  write(SETS_KEY, sets);
+  notify();
+  return remote;
 }
 
 export function getSet(id) {
@@ -217,7 +333,7 @@ export function saveSet(set) {
     notify();
     return updated;
   }
-  const created = { ...set, id: uid(), createdAt: now, updatedAt: now, ...authorStamp() };
+  const created = { draft: false, ...set, id: uid(), createdAt: now, updatedAt: now, ...authorStamp() };
   sets.push(created);
   write(SETS_KEY, sets);
   notify();
@@ -251,6 +367,23 @@ export function duplicateSet(id) {
 export function deleteSet(id) {
   write(SETS_KEY, read(SETS_KEY).filter((s) => s.id !== id));
   addTombstone("sets", id);
+  notify();
+}
+
+export function deleteSets(ids) {
+  ids.forEach((id) => deleteSet(id));
+}
+
+export function duplicateSets(ids) {
+  return ids.map((id) => duplicateSet(id)).filter(Boolean);
+}
+
+export function setSetsDraft(ids, draft) {
+  const sets = read(SETS_KEY);
+  const idSet = new Set(ids);
+  const now = new Date().toISOString();
+  const updated = sets.map((s) => (idSet.has(s.id) ? { ...s, draft, updatedAt: now } : s));
+  write(SETS_KEY, updated);
   notify();
 }
 
@@ -356,6 +489,72 @@ export function deleteComment(id) {
   notify();
 }
 
+// ---------- Ma progression (notes personnelles sur un chant) ----------
+// Contrairement aux notes d'équipe (partagées), ceci est un journal privé :
+// chaque membre Plus/Pro/Admin ne voit que ses propres entrées, pour se
+// souvenir plus tard de comment il/elle joue un chant (technique, capo,
+// façon de le sentir...).
+
+const PROGRESS_KEY = "singout:progress";
+
+export function getProgressNotes(songId, userId) {
+  return read(PROGRESS_KEY, [])
+    .filter((p) => p.songId === songId && p.userId === userId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export function addProgressNote(songId, text, level) {
+  const user = getCurrentUser();
+  if (!user) throw new Error("Connectez-vous pour enregistrer votre progression.");
+  const notes = read(PROGRESS_KEY, []);
+  const note = {
+    id: uid(),
+    songId,
+    userId: user.id,
+    text: text.trim(),
+    level: level || "",
+    createdAt: new Date().toISOString(),
+  };
+  notes.push(note);
+  write(PROGRESS_KEY, notes);
+  notify();
+  return note;
+}
+
+export function deleteProgressNote(id) {
+  write(PROGRESS_KEY, read(PROGRESS_KEY, []).filter((p) => p.id !== id));
+  notify();
+}
+
+// ---------- Suggestions (envoyées par e-mail, cf. Preorder) ----------
+// Réservé aux Membres Plus/Pro/Admin : une remarque ou idée d'amélioration,
+// gardée en local (visible par l'admin) et envoyée par e-mail comme pour
+// une précommande.
+
+const SUGGESTIONS_KEY = "singout:suggestions";
+
+export function getSuggestions() {
+  return read(SUGGESTIONS_KEY, [])
+    .slice()
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export function saveSuggestion(data) {
+  const user = getCurrentUser();
+  const suggestions = read(SUGGESTIONS_KEY, []);
+  const entry = {
+    id: uid(),
+    authorName: user ? `${user.prenom} ${user.nom}` : data.name?.trim() || "Anonyme",
+    authorEmail: user?.email || data.email?.trim() || "",
+    message: data.message?.trim() || "",
+    createdAt: new Date().toISOString(),
+  };
+  suggestions.push(entry);
+  write(SUGGESTIONS_KEY, suggestions);
+  notify();
+  return entry;
+}
+
 // ---------- Données de démonstration ----------
 // Injectées une seule fois au tout premier lancement pour que l'app ne
 // s'ouvre jamais totalement vide (repris des chants fournis en exemple).
@@ -366,7 +565,7 @@ export function seedIfEmpty() {
   if (read(SONGS_KEY).length > 0) return;
 
   const now = new Date().toISOString();
-  const mk = (partial) => ({ id: uid(), createdAt: now, updatedAt: now, category: "", youtubeUrl: "", originalKey: "", favorite: false, tags: [], chords: "", ...partial });
+  const mk = (partial) => ({ id: uid(), createdAt: now, updatedAt: now, category: "", youtubeUrl: "", originalKey: "", favorite: false, tags: [], chords: "", language: "Français", ...partial });
 
   const songs = [
     mk({

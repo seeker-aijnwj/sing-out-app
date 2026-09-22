@@ -14,7 +14,7 @@ export function formatSongText(song) {
   if (hasLyrics) {
     song.lyrics.forEach((verse, i) => {
       if (!verse.text?.trim()) return;
-      if (verse.label?.trim()) lines.push(`[${verse.label.trim()}]`);
+      if (verse.label?.trim()) lines.push(`_[${verse.label.trim()}]_`);
       lines.push(verse.text.trim());
       if (i < song.lyrics.length - 1) lines.push("");
     });
@@ -82,4 +82,21 @@ export function telegramUrl(text) {
 
 export async function copyText(text) {
   await navigator.clipboard.writeText(text);
+}
+
+// Message de promotion de l'application elle-même (pas un chant ou une
+// liste), pour que les membres puissent la faire connaître autour d'eux.
+// Utilise l'URL réellement déployée (fonctionne aussi bien en local qu'une
+// fois publié sur GitHub Pages, quel que soit le nom du dépôt).
+export function formatAppShareText() {
+  const url = typeof window !== "undefined" ? window.location.origin + import.meta.env.BASE_URL : "";
+  return [
+    "🎵 *Sing Out* — l'appli pour gérer les chants et les listes de chants de votre église.",
+    "",
+    "Enregistrez vos chants, préparez vos listes pour le culte et partagez-les en un clic sur WhatsApp.",
+    "",
+    url,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }

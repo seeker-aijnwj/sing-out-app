@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import BottomNav from "../components/BottomNav.jsx";
 import logo from "../assets/logo.png";
-import { getSongs, getSets, getSongHistory, onDataChange } from "../lib/storage.js";
+import { getSongs, getSets, getAllPerformances, onDataChange } from "../lib/storage.js";
 import { formatDateLong } from "../lib/share.js";
 import { getSyncStatus, onSyncStatusChange } from "../lib/sync.js";
 
@@ -69,9 +69,11 @@ export default function Home() {
   );
 
   const topSong = useMemo(() => {
+    const counts = new Map();
+    for (const p of getAllPerformances()) counts.set(p.songId, (counts.get(p.songId) || 0) + 1);
     let best = null;
     for (const song of songs) {
-      const count = getSongHistory(song.id).length;
+      const count = counts.get(song.id) || 0;
       if (count > 0 && (!best || count > best.count)) best = { song, count };
     }
     return best;

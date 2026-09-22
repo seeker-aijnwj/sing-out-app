@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Mic2, Music4, Clock, TrendingUp } from "lucide-react";
-import { getSongs, getAllPerformances } from "../lib/storage.js";
+import { getSongs, getAllPerformances, onDataChange } from "../lib/storage.js";
 import { formatDateLong } from "../lib/share.js";
 import AccessGate from "../components/AccessGate.jsx";
 
@@ -34,8 +34,13 @@ function Bar({ label, count, max, tone = "blue", onClick }) {
 
 export default function Stats() {
   const navigate = useNavigate();
-  const songs = getSongs();
-  const performances = useMemo(() => getAllPerformances(), []);
+  const [songs, setSongs] = useState(() => getSongs());
+  const [performances, setPerformances] = useState(() => getAllPerformances());
+
+  useEffect(() => onDataChange(() => {
+    setSongs(getSongs());
+    setPerformances(getAllPerformances());
+  }), []);
 
   const leadStats = useMemo(() => {
     const map = new Map();

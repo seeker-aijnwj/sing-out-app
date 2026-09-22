@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // Nom du dépôt GitHub : à adapter si le repo change de nom.
 // GitHub Pages sert le site depuis https://<user>.github.io/<repo>/
-const REPO_NAME = 'sing-out-app'
+const REPO_NAME = 'sing-out'
 
 export default defineConfig({
   base: `/${REPO_NAME}/`,
@@ -40,6 +40,13 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2}'],
+        // Active immédiatement chaque nouvelle version du service worker au
+        // lieu d'attendre la fermeture de tous les onglets : sans ça, un
+        // redéploiement (ex. sur GitHub Pages) reste "coincé" tant que
+        // l'utilisateur ne ferme ou ne rouvre pas complètement l'app.
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         // Le SDK Firebase (chargé dynamiquement, uniquement si configuré) ne
         // doit pas être pré-mis en cache : tant qu'aucune clé Firebase n'est
         // fournie, ce code n'est jamais téléchargé ni exécuté.

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Check } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Check, Feather } from "lucide-react";
 import { getSong, saveSong, newId } from "../lib/storage.js";
+import { useCurrentUser } from "../lib/auth.js";
 import AccessGate, { useAccess } from "../components/AccessGate.jsx";
 
 const CATEGORY_SUGGESTIONS = [
@@ -19,12 +20,28 @@ export const KEY_SUGGESTIONS = [
   "Do m", "Ré m", "Mi m", "Fa m", "Sol m", "La m", "Si m",
 ];
 
+export const LANGUAGE_SUGGESTIONS = ["Français", "Anglais", "Lingala",
+  "Swahili", "Espagnol", "Bété", "Guéré"
+];
+
 function emptyVerse() {
   return { id: newId(), label: "", text: "" };
 }
 
 function blankSong() {
-  return { title: "", category: "", originalKey: "", youtubeUrl: "", notes: "", tags: [], chords: "", lyrics: [emptyVerse()] };
+  return {
+    title: "",
+    category: "",
+    originalKey: "",
+    youtubeUrl: "",
+    notes: "",
+    tags: [],
+    chords: "",
+    language: "Français",
+    isComposition: false,
+    composer: "",
+    lyrics: [emptyVerse()],
+  };
 }
 
 export default function SongForm() {
@@ -33,6 +50,7 @@ export default function SongForm() {
   const editing = Boolean(id);
   const existing = editing ? getSong(id) : null;
   const { allowed: canUsePlusFeatures } = useAccess("plus");
+  const currentUser = useCurrentUser();
 
   const [song, setSong] = useState(() => {
     if (existing) {
@@ -41,6 +59,9 @@ export default function SongForm() {
         originalKey: existing.originalKey || "",
         tags: existing.tags || [],
         chords: existing.chords || "",
+        language: existing.language || "Français",
+        isComposition: Boolean(existing.isComposition),
+        composer: existing.composer || "",
         lyrics: existing.lyrics?.length ? existing.lyrics : [emptyVerse()],
       };
     }
@@ -81,22 +102,30 @@ export default function SongForm() {
       setError("Donnez un titre à ce chant.");
       return;
     }
-    const saved = saveSong({
-      ...song,
-      title: song.title.trim(),
-      category: song.category.trim(),
-      originalKey: song.originalKey?.trim() || "",
-      youtubeUrl: song.youtubeUrl.trim(),
-      notes: song.notes?.trim() || "",
-      tags: canUsePlusFeatures
-        ? tagsText.split(",").map((t) => t.trim()).filter(Boolean)
-        : song.tags || [],
-      chords: canUsePlusFeatures ? song.chords?.trim() || "" : song.chords || "",
-      lyrics: song.lyrics
-        .map((v) => ({ ...v, label: v.label.trim(), text: v.text }))
-        .filter((v) => v.text?.trim() || v.label),
-    });
-    navigate(`/chants/${saved.id}`, { replace: true });
+    setError("");
+    try {
+      const saved = saveSong({
+        ...song,
+        title: song.title.trim(),
+        category: song.category.trim(),
+        originalKey: song.originalKey?.trim() || "",
+        language: song.language?.trim() || "Français",
+        youtubeUrl: song.youtubeUrl.trim(),
+        notes: song.notes?.trim() || "",
+        tags: canUsePlusFeatures
+          ? tagsText.split(",").map((t) => t.trim()).filter(Boolean)
+          : song.tags || [],
+        chords: canUsePlusFeatures ? song.chords?.trim() || "" : song.chords || "",
+        composer: canUsePlusFeatures ? song.composer?.trim() || "" : song.composer || "",
+        isComposition: Boolean(song.isComposition),
+        lyrics: song.lyrics
+          .map((v) => ({ ...v, label: v.label.trim(), text: v.text }))
+          .filter((v) => v.text?.trim() || v.label),
+      });
+      navigate(`/chants/${saved.id}`, { replace: true });
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   return (
@@ -139,21 +168,36 @@ export default function SongForm() {
             </datalist>
           </Field>
 
-          <Field label="Gamme originelle">
+          <Field label="Langue">
             <input
-              value={song.originalKey}
-              onChange={(e) => setSong((s) => ({ ...s, originalKey: e.target.value }))}
-              placeholder="Ex. Sol"
-              list="key-suggestions"
+              value={song.language}
+              onChange={(e) => setSong((s) => ({ ...s, language: e.target.value }))}
+              placeholder="Ex. Français"
+              list="language-suggestions"
               className="input"
             />
-            <datalist id="key-suggestions">
-              {KEY_SUGGESTIONS.map((k) => (
-                <option key={k} value={k} />
+            <datalist id="language-suggestions">
+              {LANGUAGE_SUGGESTIONS.map((l) => (
+                <option key={l} value={l} />
               ))}
             </datalist>
           </Field>
         </div>
+
+        <Field label="Gamme originelle">
+          <input
+            value={song.originalKey}
+            onChange={(e) => setSong((s) => ({ ...s, originalKey: e.target.value }))}
+            placeholder="Ex. Sol"
+            list="key-suggestions"
+            className="input"
+          />
+          <datalist id="key-suggestions">
+            {KEY_SUGGESTIONS.map((k) => (
+              <option key={k} value={k} />
+            ))}
+          </datalist>
+        </Field>
 
         <div>
           <div className="flex items-center justify-between mb-2 px-1">
@@ -229,12 +273,40 @@ export default function SongForm() {
                 className="input font-mono resize-none"
               />
             </Field>
+
+            <div className="bg-surface border border-border rounded-2xl p-3.5">
+              <label className="flex items-center gap-2.5 select-none cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={song.isComposition}
+                  onChange={(e) =>
+                    setSong((s) => ({
+                      ...s,
+                      isComposition: e.target.checked,
+                      composer: e.target.checked && !s.composer && currentUser ? `${currentUser.prenom} ${currentUser.nom}` : s.composer,
+                    }))
+                  }
+                  className="w-4 h-4 accent-brand-blue"
+                />
+                <span className="flex items-center gap-1.5 text-sm font-medium text-ink">
+                  <Feather size={14} className="text-brand-blue" /> C'est une composition originale
+                </span>
+              </label>
+              {song.isComposition && (
+                <input
+                  value={song.composer}
+                  onChange={(e) => setSong((s) => ({ ...s, composer: e.target.value }))}
+                  placeholder="Nom du/de la compositeur·rice"
+                  className="input mt-2.5"
+                />
+              )}
+            </div>
           </>
         ) : (
           <AccessGate
             level="plus"
             compact
-            hint="Étiquettes et accords sont réservés aux Membres Plus/Pro."
+            hint="Étiquettes, accords et compositions sont réservés aux Membres Plus/Pro."
           />
         )}
 

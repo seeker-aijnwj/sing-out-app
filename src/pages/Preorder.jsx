@@ -2,9 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Mail, Send, PartyPopper } from "lucide-react";
 import { savePreorder } from "../lib/storage.js";
-
-// ⚠️ À remplacer par la vraie adresse e-mail qui doit recevoir les précommandes.
-const PREORDER_EMAIL = "wilfriedyoro68@gmail.com";
+import { CONTACT_EMAIL as PREORDER_EMAIL } from "../config.js";
 
 const emptyForm = { prenom: "", nom: "", email: "", contact: "", assemblee: "", tailleEquipe: "", message: "" };
 
